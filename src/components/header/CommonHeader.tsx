@@ -7,11 +7,11 @@ import {
 } from 'react-native-responsive-screen';
 import Theme from '../../utils/theme';
 
-const CommonHeader = () => {
+const CommonHeader = (props: {name: string}) => {
   return (
     <View style={styles.main_contain}>
       <View style={styles.inner_contain}>
-          <Text style={styles.reward_txt}>Header Component</Text>
+          <Text style={styles.reward_txt}>{props.name}</Text>
       </View>
     </View>
   );
@@ -49,6 +49,6 @@ const styles = StyleSheet.create({
   },
   reward_txt: {
     color: Theme.APP_WHITE_COLOR,
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(25),
   },
 });

@@ -1,62 +1,96 @@
-import {StyleSheet, Text, View, Button} from 'react-native';
+import {StyleSheet, View, Button, Dimensions, TouchableOpacity} from 'react-native';
 import React, {useEffect, useState} from 'react';
-import {CommonHeader, LoadingOverlay} from '../components';
+import {CommonHeader, CustomModal, LoadingOverlay} from '../components';
 import Theme from '../utils/theme';
 import {
   VictoryLine,
   VictoryChart,
   VictoryTheme,
   VictoryZoomContainer,
-  VictoryBrushContainer,
-  VictoryLabel,
 } from 'victory-native';
 import {useAppDispatch, useAppSelector} from '../redux/store/hooks';
-import MasterSocketsManager from '../SocketManager/master-socket-manager';
-import {
-  getSensors,
-  receiveSocketData,
-  receiveSocketStatus,
-} from '../redux/features/DataSlice';
+import {getSensors, receiveSocketData} from '../redux/features/DataSlice';
 import {ConnectionError} from '../components/ConnectionError';
 import DropDownPicker from 'react-native-dropdown-picker';
+import notifee, {EventType} from '@notifee/react-native';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackNavigatorParamList} from '../../types/NavigationType';
+import {useWebsocket} from '../SocketManager/useWebsocket';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 const MainListing = () => {
   const dispatch = useAppDispatch();
-  const [initialZoomDomain, setInitialZoomDomain] = useState({x: [0, 5]});
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackNavigatorParamList>>();
   //states from redux to display data here
-  const data = useAppSelector(state => state.main.data);
-  const status = useAppSelector(state => state.main.socketStatus);
-  const sensors = useAppSelector(state => state.main.sensors);
+  const chartdata = useAppSelector(state => state.main.data);
+  const sensors: any = useAppSelector(state => state.main.sensors);
   const loading = useAppSelector(state => state.main.loading);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(null);
-  const [items, setItems] = useState(
-    sensors.map(item => ({
-      label: item.name,
-      value: item.id.toString(),
-    })),
-  );
+  const items = sensors.map(item => ({label: item.name, value: item.id}));
+  //Custom Hook for socket.io. We can pass this from .env but currently passing directly here.
+  const {connected, socket} = useWebsocket('http://192.168.1.3:3000');
 
-  const resetZoom = () => {
-    setInitialZoomDomain({x: [0, 5]});
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  const openModal = () => {
+    setModalVisible(true);
   };
+
+  const closeModal = () => {
+    setModalVisible(false);
+  };
+
+  async function onDisplayNotification() {
+    // Request permissions (required for iOS)
+    await notifee.requestPermission();
+
+    // Create a channel (required for Android)
+    const channelId = await notifee.createChannel({
+      id: 'default',
+      name: 'Default Channel',
+    });
+
+    // Display a notification
+    await notifee.displayNotification({
+      title: 'Deep Link test',
+      body: 'Testing Notification For Redirecting',
+      android: {
+        channelId,
+        smallIcon: 'ic_launcher', // optional, defaults to 'ic_launcher'.
+        // pressAction is needed if you want the notification to open the app when pressed
+        pressAction: {
+          id: 'default',
+        },
+      },
+    });
+  }
+  //For Listening Server and getting random data
+  socket?.on('randomData', payload => {
+    // 'payload' contains the data sent from the server
+    dispatch(receiveSocketData(payload));
+  });
 
   useEffect(() => {
+    //Fore redirecing user to required screen
+    const unsubscribe = notifee.onForegroundEvent(async event => {
+      if (event.type === EventType.PRESS) {
+        const notification = await notifee.getDisplayedNotifications();
+        navigation.navigate('WEATHERDETAIL');
+      }
+    });
     //getting sensors from mock api
     dispatch(getSensors());
-    //getting connection with Websocket
-    MasterSocketsManager.getInstance().connect(onPayloadRecieved);
-  }, []);
-
-  //function for setting payload data to redux
-  const onPayloadRecieved = data => {
-    dispatch(receiveSocketStatus(true));
-    dispatch(receiveSocketData(data));
-  };
+    return () => {
+      unsubscribe;
+    };
+  }, [socket]);
 
   return (
     <View style={styles.main_container}>
-      <CommonHeader />
+      <CommonHeader name="Dashboard" />
       <View style={styles.dropdown_contain}>
         <DropDownPicker
           open={open}
@@ -64,33 +98,44 @@ const MainListing = () => {
           items={items && items}
           setOpen={setOpen}
           setValue={setValue}
-          setItems={setItems}
+          placeholder="Select a Sensor"
+          //setItems={setItems}
         />
       </View>
+      <View style={styles.filtet_btn}>
+        <TouchableOpacity onPress={() => openModal()}>
+          <Icon name='filter' size={25} />
+        </TouchableOpacity>
+      </View>
       <VictoryChart
-        containerComponent={
-          <VictoryZoomContainer
-            zoomDimension="x"
-            zoomDomain={initialZoomDomain}
-          />
-        }
+      height={Dimensions.get('screen').height/2}
+        containerComponent={<VictoryZoomContainer allowPan={true} zoomDimension="x" />}
         theme={VictoryTheme.material}>
         <VictoryLine
           style={{
             data: {stroke: '#c43a31'},
             parent: {border: '1px solid #ccc'},
           }}
-          data={data}
-          labels={({datum}) => datum.y} // Set label to display y value
-          labelComponent={<VictoryLabel style={{fill: 'white'}} />} // Style label to be white
+          animate={{
+            duration: 2000,
+            onLoad: {duration: 1000},
+          }}
+          data={chartdata}
         />
-        <VictoryBrushContainer brushDimension="x" brushDomain={{x: [0, 5]}} />
       </VictoryChart>
-      <View style={styles.button_contain}>
-        <Button title="Reset Zoom" onPress={() => resetZoom()} />
+      <View style={styles.button_contain_Deep}>
+        <Button
+          title="Test Deep Link"
+          onPress={() => onDisplayNotification()}
+        />
       </View>
       <LoadingOverlay isLoading={loading} message="Loading..." />
-      {!status ? <ConnectionError /> : null}
+      {!connected ? (
+        <ConnectionError stat={false} />
+      ) : (
+        <ConnectionError stat={true} />
+      )}
+      <CustomModal isVisible={isModalVisible} closeModal={closeModal} />
     </View>
   );
 };
@@ -112,4 +157,12 @@ const styles = StyleSheet.create({
     width: '80%',
     alignItems: 'flex-end',
   },
+  button_contain_Deep: {
+    position: 'absolute',
+    bottom: 50,
+    width: '80%',
+  },
+  filtet_btn: {
+    width:'80%', alignItems:'flex-end', marginTop: 20
+  }
 });

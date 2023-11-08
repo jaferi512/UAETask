@@ -3,7 +3,7 @@ import mockApi from '../../mockApi';
 
 interface DataState {
   loading: boolean;
-  data: [];
+  data: {}
   sensors: [],
   error: string | null;
   socketStatus:  boolean;
@@ -24,7 +24,13 @@ export const getSensors = createAsyncThunk(
 const initialState: DataState = {
   loading: false,
   socketStatus: false,
-  data: [],
+  data: [
+    { x: 1, y: 2 },
+    { x: 2, y: 3 },
+    { x: 3, y: 5 },
+    { x: 4, y: 7 },
+    { x: 5, y: 11 }
+  ],
   sensors: [],
   error: '',
 };
@@ -38,6 +44,10 @@ export const DataReducer = createSlice({
     },
     receiveSocketStatus(state, action) {
       state.socketStatus = action.payload;
+    },
+    filterData: (state, action) => {
+      const { xThreshold, yThreshold } = action.payload;
+      state.data = state.data.filter(point => point.x > xThreshold && point.y > yThreshold);
     },
   },
   extraReducers: builder => {
@@ -59,5 +69,5 @@ export const DataReducer = createSlice({
     });
   }
 });
-export const { receiveSocketData, receiveSocketStatus } = DataReducer.actions;
+export const { receiveSocketData, receiveSocketStatus, filterData } = DataReducer.actions;
 export default DataReducer.reducer;

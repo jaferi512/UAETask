@@ -4,11 +4,10 @@ export interface Category {
 }
 
 const sensors: Category[] = [
-  {id: 0, name: 'All'},
-  {id: 1, name: 'Category 1'},
-  {id: 2, name: 'Category 2'},
-  {id: 3, name: 'Category 3'},
-  {id: 4, name: 'Category 4'},
+  {id: 0, name: 'acdc1'},
+  {id: 1, name: 'abba5'},
+  {id: 2, name: 'iddqd'},
+  {id: 3, name: 'idkfa'},
 ];
 
   const getSensors = (): Promise<Category[]> => {
