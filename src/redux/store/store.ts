@@ -1,8 +1,10 @@
 import { configureStore, ThunkAction, Action, combineReducers } from '@reduxjs/toolkit';
 import DataReducer from '../features/DataSlice';
+import WeatherReducer  from '../features/WeatherSlice';
 
 const rootReducer = combineReducers({
   main: DataReducer,
+  weather: WeatherReducer,
 });
 const store = configureStore({
   reducer: rootReducer,
